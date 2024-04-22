@@ -1,25 +1,35 @@
-// Set up the scene
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 // Create renderer
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
+// Set up the scene
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+
 // Load spaceship texture
-const loader = new THREE.GLTFLoader();
-loader.load(
-  'models/spaceship.glb',
-  function (gltf) {
-    const spaceship = gltf.scene;
-    scene.add(spaceship);
-  },
-  undefined,
-  function (error) {
-    console.error('Error loading GLTF model:', error);
-  }
-);
+const loader = new GLTFLoader();
+const spaceshipPath = '../models/spaceship1/';
+
+loader.load(spaceshipPath + 'scene.gltf', (gltf) => {
+
+  const spaceshipMesh = gltf.scene;
+  spaceshipMesh.position.set(0, 0, 0);
+  spaceshipMesh.scale.set(1, 1, 1);
+
+  scene.add(spaceshipMesh);
+
+}, undefined, (error) => {
+  console.error(error);
+});
+
+// Create ambient light
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+scene.add(ambientLight);
 
 // Define keyboard controls
 const keyboardState = {};
@@ -30,22 +40,48 @@ document.addEventListener('keyup', (event) => {
   keyboardState[event.code] = false;
 });
 
+// Define initial position for the spaceship
+let spaceshipPosition = { x: 0, y: 0 };
+
 // Function to handle player movement
 function handlePlayerMovement() {
   const speed = 0.1;
   if (keyboardState['KeyW']) {
-    spaceship.position.y += speed;
+    spaceshipPosition.y += speed;
   }
   if (keyboardState['KeyS']) {
-    spaceship.position.y -= speed;
+    spaceshipPosition.y -= speed;
   }
   if (keyboardState['KeyA']) {
-    spaceship.position.x -= speed;
+    spaceshipPosition.x -= speed;
   }
   if (keyboardState['KeyD']) {
-    spaceship.position.x += speed;
+    spaceshipPosition.x += speed;
   }
 }
+
+// Function to create stars
+function createStars() {
+  const starCount = 1000; // Adjust as needed
+  const starGeometry = new THREE.SphereGeometry(0.1, 32, 32);
+  const starMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+  for (let i = 0; i < starCount; i++) {
+    const star = new THREE.Mesh(starGeometry, starMaterial);
+    const distance = 100; // Adjust the distance from the camera
+    const angle1 = Math.random() * Math.PI * 2;
+    const angle2 = Math.random() * Math.PI * 2;
+    const x = Math.sin(angle1) * Math.cos(angle2) * distance;
+    const y = Math.sin(angle2) * distance;
+    const z = Math.cos(angle1) * Math.cos(angle2) * distance;
+
+    star.position.set(x, y, z);
+    scene.add(star);
+  }
+}
+
+// Call the function to create stars
+createStars();
 
 // Set up camera position
 camera.position.z = 5;
