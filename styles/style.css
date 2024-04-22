@@ -1,0 +1,13 @@
+canvas {
+    border: 1px solid white;
+    background-color: black;
+    display: block;
+    margin: 0 auto;
+}
+
+body {
+    background-color: black;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+}
