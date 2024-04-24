@@ -19,3 +19,30 @@ canvas {
      font-family: 'Jetbrains Mono', sans-serif;
      font-size: 2rem;
 }
+
+#play-button {
+     position: absolute;
+     top: 50%;
+     left: 50%;
+     transform: translate(-50%, -50%);
+     z-index: 1;
+     background-color: #ff5722;
+     color: white;
+     padding: 10px 20px;
+     border: none;
+     border-radius: 5px;
+     font-family: 'Jetbrains Mono', sans-serif;
+     font-size: 1.5rem;
+     cursor: pointer;
+     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+#play-button:hover {
+     background-color: #ff7043;
+     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+#play-button:active {
+     background-color: #e64a19;
+     box-shadow: none;
+}

@@ -1,5 +1,6 @@
 // .gitignore
 
 node_modules/
+depricated/
 package-lock.json
 package.json

@@ -1,36 +1,30 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-// Create renderer
-const renderer = new THREE.WebGLRenderer();
+const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// Set up the scene
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
-// Score counter
 let score = 0;
-
-// Create a div element to display the score
 const scoreElement = document.createElement('div');
 scoreElement.style.position = 'absolute';
 scoreElement.style.top = '10px';
 scoreElement.style.left = '10px';
 scoreElement.style.color = 'white';
 scoreElement.style.fontSize = '24px';
-scoreElement.innerHTML = 'Score: ' + score;
+scoreElement.innerHTML = `Score: ${score}`;
 document.body.appendChild(scoreElement);
 
-// Function to update the score when an enemy is destroyed
 function updateScore() {
   score += 100;
-  scoreElement.innerHTML = 'Score: ' + score;
+  scoreElement.innerHTML = `Score: ${score}`;
 }
 
-// Load spaceship texture
 const loader = new GLTFLoader();
+
 const spaceshipPath = 'https://raw.githubusercontent.com/SaolGhra/space-invaders/main/models/spaceship1/';
 let spaceshipMesh;
 
@@ -38,14 +32,12 @@ loader.load(spaceshipPath + 'scene.gltf', (gltf) => {
   spaceshipMesh = gltf.scene;
   spaceshipMesh.position.set(0, 0, 0);
   spaceshipMesh.scale.set(0.2, 0.2, 0.2);
-  spaceshipMesh.rotation.x = Math.PI / 2; 
-
+  spaceshipMesh.rotation.x = Math.PI / 2;
   scene.add(spaceshipMesh);
 }, undefined, (error) => {
   console.error(error);
 });
 
-// Section for creating the enemy spaceship
 const spaceInvader = 'https://raw.githubusercontent.com/SaolGhra/space-invaders/main/models/spaceship2/';
 const enemyCount = 5;
 const enemySpacing = 2;
@@ -57,77 +49,91 @@ loader.load(spaceInvader + 'scene.gltf', (gltf) => {
   enemyMesh.position.set(0, 0, 0);
   enemyMesh.scale.set(0.1, 0.1, 0.1);
   enemyMesh.rotation.x = Math.PI / 2;
-
-  // Add hitCount property to enemyMesh
-  enemyMesh.hitCount = 0;
+  enemyMesh.hitByPlanet = 0;
 
   for (let i = 0; i < enemyCount; i++) {
     const enemy = enemyMesh.clone();
-    enemy.hitCount = 0; // Add hitCount property to enemy
+    enemy.hitCount = 0;
     enemy.position.set(i * enemySpacing - (enemyCount - 1) * enemySpacing / 2, 3, 0);
     enemyGroup.add(enemy);
   }
-  
+
   scene.add(enemyGroup);
 }, undefined, (error) => {
   console.error(error);
 });
 
-// Planet colission with enemy
 let gameOver = false;
 let playerHit = false;
 const collisionDistance = 0.5;
 
 function checkCollision() {
-  if (!spaceshipMesh) return; // Check if spaceshipMesh is defined
+  if (!spaceshipMesh) return;
+  let enemy;
 
-  // Check for collision between player and enemies
+  // Check player and enemy collision
   enemyGroup.children.forEach((enemy) => {
-    if (enemy.position && spaceshipMesh.position.distanceTo(enemy.position) < collisionDistance) {
-      if (!playerHit) {
-        playerHit = true;
-        scene.remove(spaceshipMesh); // Remove spaceshipMesh when hit
-      }
+    if (enemy) {
+        enemy.hitByPlanet = 0;
+        if (Math.random() < 0.01) {
+            createEnemyBullet(enemy);
+        }
     }
-  });
+});
 
-  // Check for collision between player and enemy bullets
+  // Check player and enemy bullet collision
   enemyBulletGroup.children.forEach((bullet) => {
     if (bullet.position && spaceshipMesh.position.distanceTo(bullet.position) < collisionDistance) {
-      if (!playerHit) { // Only set playerHit to true if it's not already true
+      if (!playerHit) {
         playerHit = true;
-        scene.remove(spaceshipMesh); // Remove spaceshipMesh when hit
+        scene.remove(spaceshipMesh);
       }
     }
   });
 
-  // Check for collision between player bullets and enemies
   bulletGroup.children.forEach((bullet) => {
-    enemyGroup.children.forEach((enemy) => {
-      if (bullet.position && enemy.position && bullet.position.distanceTo(enemy.position) < collisionDistance) {
-        // Handle bullet-enemy collision
-        scene.remove(bullet); // Remove bullet when hitting an enemy
-      }
-    });
+    if (!bullet.processed) {
+        enemyGroup.children.forEach((enemy) => {
+            if (!enemy.destroyed && bullet.position && enemy.position && bullet.position.distanceTo(enemy.position) < collisionDistance) {
+                console.log('Collision detected!');
+                bullet.processed = true; // Mark the bullet as processed immediately
+                
+                if (bullet.isFromPlanet) {
+                    // Increment hit count for enemies hit by the planet
+                    enemy.hitByPlanet = (enemy.hitByPlanet || 0) + 1;
+                }
+                
+                scene.remove(bullet); // Remove the bullet
+                
+                // If the enemy is hit three times by the planet, destroy it
+                if (enemy.hitByPlanet >= 3) {
+                    console.log('Enemy destroyed!');
+                    enemy.destroyed = true;
+                    scene.remove(enemy);
+                }
+            }
+        });
+    }
   });
 
-  // Update player lives
+  // Reset the processed flag for all bullets in each iteration of the game loop
+  bulletGroup.children.forEach((bullet) => {
+      bullet.processed = false;
+  });
+
   if (playerHit) {
     lives--;
     updateLives();
     playerHit = false;
     if (lives <= 0) {
-      gameOver = true;
+        gameOver = true;
     }
   }
 }
 
-// Make the enemies shoot back at you
-// Create enemy bullet group
 const enemyBulletGroup = new THREE.Group();
 scene.add(enemyBulletGroup);
 
-// Function to create an enemy bullet
 function createEnemyBullet(enemy) {
   const geometry = new THREE.SphereGeometry(0.1, 32, 32);
   const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
@@ -136,21 +142,29 @@ function createEnemyBullet(enemy) {
   enemyBulletGroup.add(bullet);
 }
 
-// Function to update enemy bullets
-function updateEnemyBullets() {
-  Array.from(enemyBulletGroup.children).forEach((bullet) => {
-    // Move bullet downwards
-    bullet.position.y -= 0.1;
+let enemyFireRate = 100; // Adjust this value to change the fire rate
+let enemyFireCounter = 0;
 
-    // Check if bullet collides with player
-    if (bullet.position.distanceTo(spaceshipMesh.position) < 1) {
-      gameOver = true;
-      console.log("Game Over!");
-    }
-  });
+function updateEnemyBullets() {
+  // Only fire a bullet if the counter has reached the fire rate
+  if (enemyFireCounter >= enemyFireRate) {
+    enemyBulletGroup.children.forEach((bullet) => {
+      bullet.position.y -= 0.1;
+
+      if (bullet.position.distanceTo(spaceshipMesh.position) < 1) {
+        gameOver = true;
+        console.log('Game Over!');
+      }
+    });
+
+    // Reset the counter
+    enemyFireCounter = 0;
+  } else {
+    // Increment the counter
+    enemyFireCounter++;
+  }
 }
 
-// Move the enemeies side to side then down
 let enemyDirection = 1;
 let enemySpeed = 0.005;
 
@@ -174,12 +188,10 @@ function moveEnemies() {
   }
 }
 
-// Define initial position for the spaceship
 let spaceshipPosition = { x: 0, y: -3 };
 let keyboardState = {};
 
-// Add event listeners for keydown and keyup events
-window.addEventListener('keydown', (event) => { 
+window.addEventListener('keydown', (event) => {
   keyboardState[event.code] = true;
 });
 
@@ -187,12 +199,8 @@ window.addEventListener('keyup', (event) => {
   keyboardState[event.code] = false;
 });
 
-// Function to handle player movement
 function handlePlayerMovement() {
-  // Check if spaceshipMesh is defined
-  if (!spaceshipMesh) {
-    return;
-  }
+  if (!spaceshipMesh) return;
 
   const speed = 0.01;
   const boundArea = 7;
@@ -213,7 +221,38 @@ function handlePlayerMovement() {
   spaceshipMesh.position.set(spaceshipPosition.x, spaceshipPosition.y, spaceshipPosition.z);
 }
 
-// Section for shooting bullets from the spaceship
+const planetPath = 'https://raw.githubusercontent.com/SaolGhra/space-invaders/main/models/planet/';
+let planetMesh;
+
+const bulletGroup = new THREE.Group();
+scene.add(bulletGroup);
+
+loader.load(planetPath + 'scene.gltf', (gltf) => {
+  planetMesh = gltf.scene;
+  planetMesh.scale.set(0.0025, 0.0025, 0.0025);
+  planetMesh.visible = false;
+  bulletGroup.add(planetMesh);
+}, undefined, (error) => {
+  console.error(error);
+});
+
+let canShoot = true;
+
+function shootPlanet() {
+  if (!canShoot) return;
+
+  const bullet = planetMesh.clone();
+  bullet.visible = true;
+  bullet.isFromPlanet = true;
+  bullet.position.copy(spaceshipMesh.position);
+  bullet.velocity = new THREE.Vector3(0, 0, -1);
+  bulletGroup.add(bullet);
+
+  canShoot = false;
+  setTimeout(() => {
+    canShoot = true;
+  }, 500);
+}
 
 // Add event listener for 'Space' key press
 window.addEventListener('keydown', (event) => {
@@ -222,53 +261,6 @@ window.addEventListener('keydown', (event) => {
   }
 });
 
-// Create a bullet group
-const bulletGroup = new THREE.Group();
-scene.add(bulletGroup);
-
-// Load bullet model
-const planetPath = 'https://raw.githubusercontent.com/SaolGhra/space-invaders/main/models/planet/';
-let planetMesh;
-
-loader.load(planetPath + 'scene.gltf', (gltf) => {
-  planetMesh = gltf.scene;
-  planetMesh.scale.set(0.0025, 0.0025, 0.0025);
-  planetMesh.visible = false;
-
-  bulletGroup.add(planetMesh);
-}, undefined, (error) => {
-  console.error(error);
-});
-
-// Function to shoot a planet
-let canShoot = true;
-
-function shootPlanet() {
-  if (!canShoot) {
-    return;
-  }
-
-  // Clone the planetMesh and make it visible
-  let bullet = planetMesh.clone();
-  bullet.visible = true;
-
-  // Position the bullet at the spaceship's position
-  bullet.position.copy(spaceshipMesh.position);
-
-  // Set the bullet's velocity
-  bullet.velocity = new THREE.Vector3(0, 0, -1); // Adjust the velocity vector as needed
-
-  // Add the bullet to bulletGroup
-  bulletGroup.add(bullet);
-
-  // Disable shooting for 0.5 seconds
-  canShoot = false;
-  setTimeout(() => {
-    canShoot = true;
-  }, 500);
-}
-
-// Function to update the bullets
 function updateBullets() {
   bulletGroup.children.forEach((bullet) => {
     bullet.position.y += 0.1;
@@ -279,11 +271,10 @@ function updateBullets() {
   });
 }
 
-// Game Over screen
 const gameOverScreen = document.createElement('div');
 gameOverScreen.style.position = 'absolute';
-gameOverScreen.style.top = '50%';
 gameOverScreen.style.left = '50%';
+gameOverScreen.style.bottom = '50%'; // Adjusted position
 gameOverScreen.style.transform = 'translate(-50%, -50%)';
 gameOverScreen.style.fontSize = '50px';
 gameOverScreen.style.color = 'white';
@@ -291,92 +282,122 @@ gameOverScreen.style.display = 'none';
 gameOverScreen.textContent = 'Game Over! Press R to restart.';
 document.body.appendChild(gameOverScreen);
 
-// Function to show game over screen
 function showGameOverScreen() {
   gameOverScreen.style.display = 'block';
 }
 
-// Function to hide game over screen
 function hideGameOverScreen() {
   gameOverScreen.style.display = 'none';
 }
 
-// Function to restart the game
+// Function to spawn enemies
+function spawnEnemies() {
+  for (let i = 0; i < enemyCount; i++) {
+    const enemy = enemyMesh.clone();
+    enemy.hitCount = 0;
+    enemy.position.set(i * enemySpacing - (enemyCount - 1) * enemySpacing / 2, 3, 0);
+    enemyGroup.add(enemy);
+  }
+}
+
+// Function to respawn the player
+function respawnPlayer() {
+  if (!spaceshipMesh) {
+    loader.load(spaceshipPath + 'scene.gltf', (gltf) => {
+      spaceshipMesh = gltf.scene;
+      spaceshipMesh.position.set(0, 0, 0);
+      spaceshipMesh.scale.set(0.2, 0.2, 0.2);
+      spaceshipMesh.rotation.x = Math.PI / 2;
+      scene.add(spaceshipMesh);
+    }, undefined, (error) => {
+      console.error(error);
+    });
+  } else {
+    spaceshipMesh.position.set(0, 0, 0);
+    scene.add(spaceshipMesh);
+  }
+}
+
 function restartGame() {
-  // Reset game over status
   gameOver = false;
+  // Respawn the player
+  respawnPlayer();
 
-  // Reset player position
-  spaceshipMesh.position.set(0, 0, 0);
-
-  // Reset enemies
-  Array.from(enemyGroup.children).forEach((enemy) => {
+  // Remove all enemies
+  enemyGroup.children.forEach((enemy) => {
     enemyGroup.remove(enemy);
   });
 
-  // Reset bullets
-  Array.from(bulletGroup.children).forEach((bullet) => {
+  // Remove all bullets
+  bulletGroup.children.forEach((bullet) => {
     bulletGroup.remove(bullet);
   });
 
-  // Reset enemy bullets
-  Array.from(enemyBulletGroup.children).forEach((bullet) => {
+  // Remove all enemy bullets
+  enemyBulletGroup.children.forEach((bullet) => {
     enemyBulletGroup.remove(bullet);
   });
 
-  // Reset lives
+  // Respawn enemies
+  spawnEnemies();
+
+  // Reset lives, score, and hide game over screen
   lives = 3;
   updateLives();
-
-  // Reset score
-  score = 0;
-  updateScore();
-
-  // Hide game over screen
-  gameOverScreen.style.display = 'none';
+  score = 0; // Reset the score
+  updateScore(); // Update the score display
+  hideGameOverScreen(); // Hide the game over screen
 }
 
-// Attach restartGame to the window object
 window.restartGame = restartGame;
 
-// Player Lives
-// Create lives variable
 let lives = 3;
-
-// Create lives element
 const livesElement = document.createElement('div');
 livesElement.style.position = 'absolute';
 livesElement.style.bottom = '10px';
 livesElement.style.left = '10px';
 livesElement.style.fontSize = '20px';
 livesElement.style.color = 'white';
-livesElement.textContent = 'Lives: ' + lives;
+livesElement.textContent = `Lives: ${lives}`;
 document.body.appendChild(livesElement);
 
-// Function to update lives
 function updateLives() {
-  livesElement.textContent = 'Lives: ' + lives;
+  livesElement.textContent = `Lives: ${lives}`;
 }
 
-// Listen for keydown events
-window.addEventListener('keydown', function(event) {
-  // Check if the 'r' key was pressed
-  if (event.key === 'r' || event.key === 'R') {
-    // Restart the game
-    window.restartGame();
+let gameStarted = false;
+
+document.getElementById('play-button').addEventListener('click', function () {
+  resetGameState();
+  gameStarted = true;
+
+  // Put your game initialization logic here,
+  // for example, setting up the game loop, spawning enemies, etc.
+
+  animate(); // Assuming the animate function starts the game loop
+  this.style.display = 'none'; // Hide the play button
+});
+
+window.addEventListener('keydown', function (event) {
+  if (event.key === 'r') {
+    restartGame();
   }
 });
+
+function resetGameState() {
+  gameOver = false;
+  playerHit = false;
+  lives = 3;
+}
 
 // Inside your game loop...
 if (gameOver) {
   showGameOverScreen();
 }
 
-// Create ambient light
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
 
-// Function to create stars
 function createStars() {
   const starCount = 1000; // Adjust as needed
   const starGeometry = new THREE.SphereGeometry(0.1, 32, 32);
@@ -390,27 +411,23 @@ function createStars() {
     const x = Math.sin(angle1) * Math.cos(angle2) * distance;
     const y = Math.sin(angle2) * distance;
     const z = Math.cos(angle1) * Math.cos(angle2) * distance;
-
     star.position.set(x, y, z);
     scene.add(star);
   }
 }
 
-// Call the function to create stars
 createStars();
 
-// Set up camera position
 camera.position.z = 5;
 
-// Function to handle window resizing
 function onWindowResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
+
 window.addEventListener('resize', onWindowResize);
 
-// Function to update the game state
 function update() {
   handlePlayerMovement();
   updateBullets();
@@ -418,41 +435,29 @@ function update() {
   moveEnemies();
 
   enemyGroup.children.forEach((enemy) => {
-    // Make enemy shoot at a random interval
     if (Math.random() < 0.01) {
       createEnemyBullet(enemy);
     }
   });
-  
-  // Update enemy bullets
+
   updateEnemyBullets();
 
   if (gameOver) {
     showGameOverScreen();
   }
-
-  if (playerHit) {
-    lives--;
-    updateLives();
-    playerHit = false;
-    if (lives <= 0) {
-      gameOver = true;
-    }
-  }
 }
 
-// Function to render the scene
 function render() {
   renderer.render(scene, camera);
 }
-
-// Function to animate the game
-function animate() {
-  if (!gameOver) {
-    requestAnimationFrame(animate);
-    update();
-    render();
+  
+  function animate() {
+    if (gameStarted) {
+      requestAnimationFrame(animate);
+      update();
+      render();
+    }
   }
-}
-
-animate();
+  
+  // Assuming you have an element with id="play-button" in your HTML
+  document.getElementById('play-button').style.display = 'block';
