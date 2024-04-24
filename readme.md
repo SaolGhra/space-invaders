@@ -1,5 +1,7 @@
 # Space Invaders
 
+![GitHub Repo stars](https://img.shields.io/github/stars/saolghra/space-invaders?style=for-the-badge)
+
 Welcome to Space Invaders! This is a classic arcade game where you control a spaceship and try to shoot down invading aliens.
 
 ## Controls
