@@ -14,51 +14,118 @@ const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerH
 // Load spaceship texture
 const loader = new GLTFLoader();
 const spaceshipPath = '../models/spaceship1/';
+let spaceshipMesh;
 
 loader.load(spaceshipPath + 'scene.gltf', (gltf) => {
-
-  const spaceshipMesh = gltf.scene;
+  spaceshipMesh = gltf.scene;
   spaceshipMesh.position.set(0, 0, 0);
-  spaceshipMesh.scale.set(1, 1, 1);
+  spaceshipMesh.scale.set(0.2, 0.2, 0.2);
+  spaceshipMesh.rotation.x = Math.PI / 2; 
 
   scene.add(spaceshipMesh);
-
 }, undefined, (error) => {
   console.error(error);
 });
 
-// Create ambient light
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-scene.add(ambientLight);
+// Section for moving the spaceship
 
-// Define keyboard controls
-const keyboardState = {};
-document.addEventListener('keydown', (event) => {
+// Define initial position for the spaceship
+let spaceshipPosition = { x: 0, y: -2.7 };
+let keyboardState = {};
+
+// Add event listeners for keydown and keyup events
+window.addEventListener('keydown', (event) => {
   keyboardState[event.code] = true;
 });
-document.addEventListener('keyup', (event) => {
+
+window.addEventListener('keyup', (event) => {
   keyboardState[event.code] = false;
 });
 
-// Define initial position for the spaceship
-let spaceshipPosition = { x: 0, y: 0 };
-
 // Function to handle player movement
 function handlePlayerMovement() {
+  // Check if spaceshipMesh is defined
+  if (!spaceshipMesh) {
+    return;
+  }
+
   const speed = 0.1;
-  if (keyboardState['KeyW']) {
-    spaceshipPosition.y += speed;
-  }
-  if (keyboardState['KeyS']) {
-    spaceshipPosition.y -= speed;
-  }
+  const boundArea = 7;
+
   if (keyboardState['KeyA']) {
     spaceshipPosition.x -= speed;
+    if (spaceshipPosition.x < -boundArea) {
+      spaceshipPosition.x = -boundArea;
+    }
   }
   if (keyboardState['KeyD']) {
     spaceshipPosition.x += speed;
+    if (spaceshipPosition.x > boundArea) {
+      spaceshipPosition.x = boundArea;
+    }
   }
+
+  spaceshipMesh.position.set(spaceshipPosition.x, spaceshipPosition.y, spaceshipPosition.z);
 }
+
+// Section for shooting bullets from the spaceship
+
+// Add event listener for 'Space' key press
+window.addEventListener('keydown', (event) => {
+  if (event.code === 'Space') {
+    shootPlanet();
+  }
+});
+
+// Create a bullet group
+const bulletGroup = new THREE.Group();
+scene.add(bulletGroup);
+
+// Load bullet model
+const planetPath = '../models/planet/';
+let planetMesh;
+
+loader.load(planetPath + 'scene.gltf', (gltf) => {
+  planetMesh = gltf.scene;
+  planetMesh.scale.set(0.0025, 0.0025, 0.0025);
+  planetMesh.visible = false;
+
+  bulletGroup.add(planetMesh);
+}, undefined, (error) => {
+  console.error(error);
+});
+
+// Function to shoot a planet
+function shootPlanet() {
+  // Clone the planetMesh and make it visible
+  let bullet = planetMesh.clone();
+  bullet.visible = true;
+
+  // Position the bullet at the spaceship's position
+  bullet.position.copy(spaceshipMesh.position);
+
+  // Set the bullet's velocity
+  bullet.velocity = new THREE.Vector3(0, 0, -1); // Adjust the velocity vector as needed
+
+  // Add the bullet to bulletGroup
+  bulletGroup.add(bullet);
+}
+
+// Function to update the bullets
+function updateBullets() {
+  bulletGroup.children.forEach((bullet) => {
+    bullet.position.y += 0.1;
+
+    if (bullet.position.y > 10) {
+      bulletGroup.remove(bullet);
+    }
+  });
+}
+
+
+// Create ambient light
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+scene.add(ambientLight);
 
 // Function to create stars
 function createStars() {
@@ -97,6 +164,7 @@ window.addEventListener('resize', onWindowResize);
 // Function to update the game state
 function update() {
   handlePlayerMovement();
+  updateBullets();
 }
 
 // Function to render the scene
@@ -110,4 +178,5 @@ function animate() {
   update();
   render();
 }
+
 animate();
