@@ -10,6 +10,24 @@ document.body.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
+// Score counter
+let score = 0;
+
+// Create a div element to display the score
+const scoreElement = document.createElement('div');
+scoreElement.style.position = 'absolute';
+scoreElement.style.top = '10px';
+scoreElement.style.left = '10px';
+scoreElement.style.color = 'white';
+scoreElement.style.fontSize = '24px';
+scoreElement.innerHTML = 'Score: ' + score;
+document.body.appendChild(scoreElement);
+
+// Function to update the score when an enemy is destroyed
+function updateScore() {
+  score += 100;
+  scoreElement.innerHTML = 'Score: ' + score;
+}
 
 // Load spaceship texture
 const loader = new GLTFLoader();
@@ -27,14 +45,119 @@ loader.load(spaceshipPath + 'scene.gltf', (gltf) => {
   console.error(error);
 });
 
-// Section for moving the spaceship
+// Section for creating the enemy spaceship
+const spaceInvader = '../models/spaceship2/';
+const enemyCount = 5;
+const enemySpacing = 2;
+const enemyGroup = new THREE.Group();
+
+loader.load(spaceInvader + 'scene.gltf', (gltf) => {
+  const enemyMesh = gltf.scene;
+  enemyMesh.position.set(0, 0, 0);
+  enemyMesh.scale.set(0.1, 0.1, 0.1);
+  enemyMesh.rotation.x = Math.PI / 2;
+
+  // Add hitCount property to enemyMesh
+  enemyMesh.hitCount = 0;
+
+  for (let i = 0; i < enemyCount; i++) {
+    const enemy = enemyMesh.clone();
+    enemy.hitCount = 0; // Add hitCount property to enemy
+    enemy.position.set(i * enemySpacing - (enemyCount - 1) * enemySpacing / 2, 3, 0);
+    enemyGroup.add(enemy);
+  }
+  
+  scene.add(enemyGroup);
+}, undefined, (error) => {
+  console.error(error);
+});
+
+// Planet colission with enemy
+let gameOver = false;
+
+function checkCollision() {
+  bulletGroup.children.forEach((bullet) => {
+    enemyGroup.children.forEach((enemy) => {
+      if (bullet.position.distanceTo(enemy.position) < 0.5) {
+        bulletGroup.remove(bullet);
+        enemy.hitCount += 1;
+        if (enemy.hitCount >= 3) {
+          enemyGroup.remove(enemy);
+          updateScore(); 
+          if (enemyCount === 0) {
+            console.log("Enemy destroyed!");
+          }
+        }
+      }
+
+      // Check if enemy collides with player
+      if (enemy.position.distanceTo(spaceshipMesh.position) < 1) {
+        gameOver = true;
+        console.log("Game Over!");
+      }
+    });
+  });
+}
+
+// Make the enemies shoot back at you
+// Create enemy bullet group
+const enemyBulletGroup = new THREE.Group();
+scene.add(enemyBulletGroup);
+
+// Function to create an enemy bullet
+function createEnemyBullet(enemy) {
+  const geometry = new THREE.SphereGeometry(0.1, 32, 32);
+  const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+  const bullet = new THREE.Mesh(geometry, material);
+  bullet.position.copy(enemy.position);
+  enemyBulletGroup.add(bullet);
+}
+
+// Function to update enemy bullets
+function updateEnemyBullets() {
+  enemyBulletGroup.children.forEach((bullet) => {
+    // Move bullet towards player
+    const direction = new THREE.Vector3().subVectors(spaceshipMesh.position, bullet.position).normalize();
+    bullet.position.add(direction.multiplyScalar(0.1));
+
+    // Check if bullet collides with player
+    if (bullet.position.distanceTo(spaceshipMesh.position) < 1) {
+      gameOver = true;
+      console.log("Game Over!");
+    }
+  });
+}
+
+// Move the enemeies side to side then down
+let enemyDirection = 1;
+let enemySpeed = 0.005;
+
+function moveEnemies() {
+  let shouldChangeDirection = false;
+  const boundArea = 7;
+
+  enemyGroup.children.forEach((enemy) => {
+    enemy.position.x += enemyDirection * enemySpeed;
+
+    if (enemy.position.x > boundArea || enemy.position.x < -boundArea) {
+      shouldChangeDirection = true;
+    }
+  });
+
+  if (shouldChangeDirection) {
+    enemyDirection *= -1;
+    enemyGroup.children.forEach((enemy) => {
+      enemy.position.y -= 0.5;
+    });
+  }
+}
 
 // Define initial position for the spaceship
-let spaceshipPosition = { x: 0, y: -2.7 };
+let spaceshipPosition = { x: 0, y: -3 };
 let keyboardState = {};
 
 // Add event listeners for keydown and keyup events
-window.addEventListener('keydown', (event) => {
+window.addEventListener('keydown', (event) => { 
   keyboardState[event.code] = true;
 });
 
@@ -49,7 +172,7 @@ function handlePlayerMovement() {
     return;
   }
 
-  const speed = 0.1;
+  const speed = 0.01;
   const boundArea = 7;
 
   if (keyboardState['KeyA']) {
@@ -96,7 +219,13 @@ loader.load(planetPath + 'scene.gltf', (gltf) => {
 });
 
 // Function to shoot a planet
+let canShoot = true;
+
 function shootPlanet() {
+  if (!canShoot) {
+    return;
+  }
+
   // Clone the planetMesh and make it visible
   let bullet = planetMesh.clone();
   bullet.visible = true;
@@ -109,6 +238,12 @@ function shootPlanet() {
 
   // Add the bullet to bulletGroup
   bulletGroup.add(bullet);
+
+  // Disable shooting for 0.5 seconds
+  canShoot = false;
+  setTimeout(() => {
+    canShoot = true;
+  }, 500);
 }
 
 // Function to update the bullets
@@ -122,6 +257,69 @@ function updateBullets() {
   });
 }
 
+// Game Over screen
+const gameOverScreen = document.createElement('div');
+gameOverScreen.style.position = 'absolute';
+gameOverScreen.style.top = '50%';
+gameOverScreen.style.left = '50%';
+gameOverScreen.style.transform = 'translate(-50%, -50%)';
+gameOverScreen.style.fontSize = '50px';
+gameOverScreen.style.color = 'white';
+gameOverScreen.style.display = 'none';
+gameOverScreen.textContent = 'Game Over! Press R to restart.';
+document.body.appendChild(gameOverScreen);
+
+// Function to show game over screen
+function showGameOverScreen() {
+  gameOverScreen.style.display = 'block';
+}
+
+// Function to hide game over screen
+function hideGameOverScreen() {
+  gameOverScreen.style.display = 'none';
+}
+
+// Function to restart the game
+function restartGame() {
+  // Reset game state
+  score = 0;
+  scoreElement.innerHTML = 'Score: ' + score;
+  gameOver = false;
+  hideGameOverScreen();
+
+  // Reset player
+  spaceshipMesh.position.set(0, 0, 0);
+
+  // Reset enemies
+  for (let i = enemyGroup.children.length - 1; i >= 0; i--) {
+    enemyGroup.remove(enemyGroup.children[i]);
+  }
+
+  // Reset bullets
+  for (let i = bulletGroup.children.length - 1; i >= 0; i--) {
+    bulletGroup.remove(bulletGroup.children[i]);
+  }
+
+  // Reset enemy bullets
+  for (let i = enemyBulletGroup.children.length - 1; i >= 0; i--) {
+    enemyBulletGroup.remove(enemyBulletGroup.children[i]);
+  }
+
+  // Update game state
+  update();
+}
+
+// Event listener for keydown event
+window.addEventListener('keydown', (event) => {
+  if (gameOver && event.key === 'r') {
+    restartGame();
+  }
+});
+
+// Inside your game loop...
+if (gameOver) {
+  showGameOverScreen();
+}
 
 // Create ambient light
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -165,6 +363,22 @@ window.addEventListener('resize', onWindowResize);
 function update() {
   handlePlayerMovement();
   updateBullets();
+  checkCollision();
+  moveEnemies();
+
+  enemyGroup.children.forEach((enemy) => {
+    // Make enemy shoot at a random interval
+    if (Math.random() < 0.01) {
+      createEnemyBullet(enemy);
+    }
+  });
+  
+  // Update enemy bullets
+  updateEnemyBullets();
+
+  if (gameOver) {
+    showGameOverScreen();
+  }
 }
 
 // Function to render the scene
@@ -174,9 +388,11 @@ function render() {
 
 // Function to animate the game
 function animate() {
-  requestAnimationFrame(animate);
-  update();
-  render();
+  if (!gameOver) {
+    requestAnimationFrame(animate);
+    update();
+    render();
+  }
 }
 
 animate();
