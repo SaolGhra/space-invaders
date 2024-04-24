@@ -49,10 +49,10 @@ loader.load(spaceInvader + 'scene.gltf', (gltf) => {
   enemyMesh.position.set(0, 0, 0);
   enemyMesh.scale.set(0.1, 0.1, 0.1);
   enemyMesh.rotation.x = Math.PI / 2;
-  enemyMesh.hitByPlanet = 0;
 
   for (let i = 0; i < enemyCount; i++) {
     const enemy = enemyMesh.clone();
+    enemy.hitByPlanet = 0;
     enemy.hitCount = 0;
     enemy.position.set(i * enemySpacing - (enemyCount - 1) * enemySpacing / 2, 3, 0);
     enemyGroup.add(enemy);
@@ -69,17 +69,6 @@ const collisionDistance = 0.5;
 
 function checkCollision() {
   if (!spaceshipMesh) return;
-  let enemy;
-
-  // Check player and enemy collision
-  enemyGroup.children.forEach((enemy) => {
-    if (enemy) {
-        enemy.hitByPlanet = 0;
-        if (Math.random() < 0.01) {
-            createEnemyBullet(enemy);
-        }
-    }
-});
 
   // Check player and enemy bullet collision
   enemyBulletGroup.children.forEach((bullet) => {
@@ -91,34 +80,39 @@ function checkCollision() {
     }
   });
 
+  // Iterate through bullets and enemies to check for collisions
   bulletGroup.children.forEach((bullet) => {
-    if (!bullet.processed) {
-        enemyGroup.children.forEach((enemy) => {
-            if (!enemy.destroyed && bullet.position && enemy.position && bullet.position.distanceTo(enemy.position) < collisionDistance) {
-                console.log('Collision detected!');
-                bullet.processed = true; // Mark the bullet as processed immediately
-                
-                if (bullet.isFromPlanet) {
-                    // Increment hit count for enemies hit by the planet
-                    enemy.hitByPlanet = (enemy.hitByPlanet || 0) + 1;
-                }
-                
-                scene.remove(bullet); // Remove the bullet
-                
-                // If the enemy is hit three times by the planet, destroy it
-                if (enemy.hitByPlanet >= 3) {
-                    console.log('Enemy destroyed!');
-                    enemy.destroyed = true;
-                    scene.remove(enemy);
-                }
+    if (bullet && !bullet.processed) {
+      enemyGroup.children.forEach((enemy) => {
+        if (enemy && !enemy.destroyed) {
+          const distance = bullet.position.distanceTo(enemy.position);
+          if (distance < collisionDistance) {
+            bullet.processed = true;
+            scene.remove(bullet);
+          
+            // If the bullet is from the planet, increment hit count for enemies hit by the planet
+            if (bullet.isFromPlanet) {
+              enemy.hitByPlanet = (enemy.hitByPlanet || 0) + 1;
+              console.log('Enemy hit by planet:', enemy.hitByPlanet);
+          
+              // If the enemy is hit three times by the planet, destroy it
+              if (enemy.hitByPlanet >= 3 && !enemy.destroyed) {
+                console.log('Destroying enemy...');
+                enemy.destroyed = true;
+                scene.remove(enemy);
+              }
             }
-        });
+          }
+        }
+      });
     }
   });
 
   // Reset the processed flag for all bullets in each iteration of the game loop
   bulletGroup.children.forEach((bullet) => {
+    if (bullet) {
       bullet.processed = false;
+    }
   });
 
   if (playerHit) {
@@ -126,7 +120,7 @@ function checkCollision() {
     updateLives();
     playerHit = false;
     if (lives <= 0) {
-        gameOver = true;
+      gameOver = true;
     }
   }
 }
@@ -142,7 +136,7 @@ function createEnemyBullet(enemy) {
   enemyBulletGroup.add(bullet);
 }
 
-let enemyFireRate = 100; // Adjust this value to change the fire rate
+let enemyFireRate = 100;
 let enemyFireCounter = 0;
 
 function updateEnemyBullets() {
@@ -274,7 +268,7 @@ function updateBullets() {
 const gameOverScreen = document.createElement('div');
 gameOverScreen.style.position = 'absolute';
 gameOverScreen.style.left = '50%';
-gameOverScreen.style.bottom = '50%'; // Adjusted position
+gameOverScreen.style.bottom = '50%';
 gameOverScreen.style.transform = 'translate(-50%, -50%)';
 gameOverScreen.style.fontSize = '50px';
 gameOverScreen.style.color = 'white';
@@ -344,9 +338,9 @@ function restartGame() {
   // Reset lives, score, and hide game over screen
   lives = 3;
   updateLives();
-  score = 0; // Reset the score
-  updateScore(); // Update the score display
-  hideGameOverScreen(); // Hide the game over screen
+  score = 0;
+  updateScore();
+  hideGameOverScreen();
 }
 
 window.restartGame = restartGame;
@@ -371,11 +365,8 @@ document.getElementById('play-button').addEventListener('click', function () {
   resetGameState();
   gameStarted = true;
 
-  // Put your game initialization logic here,
-  // for example, setting up the game loop, spawning enemies, etc.
-
-  animate(); // Assuming the animate function starts the game loop
-  this.style.display = 'none'; // Hide the play button
+  animate(); 
+  this.style.display = 'none';
 });
 
 window.addEventListener('keydown', function (event) {
@@ -390,7 +381,6 @@ function resetGameState() {
   lives = 3;
 }
 
-// Inside your game loop...
 if (gameOver) {
   showGameOverScreen();
 }
@@ -399,13 +389,13 @@ const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
 
 function createStars() {
-  const starCount = 1000; // Adjust as needed
+  const starCount = 1000;
   const starGeometry = new THREE.SphereGeometry(0.1, 32, 32);
   const starMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
   for (let i = 0; i < starCount; i++) {
     const star = new THREE.Mesh(starGeometry, starMaterial);
-    const distance = 100; // Adjust the distance from the camera
+    const distance = 100;
     const angle1 = Math.random() * Math.PI * 2;
     const angle2 = Math.random() * Math.PI * 2;
     const x = Math.sin(angle1) * Math.cos(angle2) * distance;
@@ -451,13 +441,12 @@ function render() {
   renderer.render(scene, camera);
 }
   
-  function animate() {
-    if (gameStarted) {
-      requestAnimationFrame(animate);
-      update();
-      render();
-    }
+function animate() {
+  if (gameStarted) {
+    requestAnimationFrame(animate);
+    update();
+    render();
   }
-  
-  // Assuming you have an element with id="play-button" in your HTML
-  document.getElementById('play-button').style.display = 'block';
+}
+
+document.getElementById('play-button').style.display = 'block';
