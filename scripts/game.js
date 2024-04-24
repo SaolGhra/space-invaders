@@ -31,7 +31,7 @@ function updateScore() {
 
 // Load spaceship texture
 const loader = new GLTFLoader();
-const spaceshipPath = '../models/spaceship1/';
+const spaceshipPath = 'https://raw.githubusercontent.com/SaolGhra/space-invaders/main/models/spaceship1/';
 let spaceshipMesh;
 
 loader.load(spaceshipPath + 'scene.gltf', (gltf) => {
@@ -46,7 +46,7 @@ loader.load(spaceshipPath + 'scene.gltf', (gltf) => {
 });
 
 // Section for creating the enemy spaceship
-const spaceInvader = '../models/spaceship2/';
+const spaceInvader = 'https://raw.githubusercontent.com/SaolGhra/space-invaders/main/models/spaceship2/';
 const enemyCount = 5;
 const enemySpacing = 2;
 const enemyGroup = new THREE.Group();
@@ -227,7 +227,7 @@ const bulletGroup = new THREE.Group();
 scene.add(bulletGroup);
 
 // Load bullet model
-const planetPath = '../models/planet/';
+const planetPath = 'https://raw.githubusercontent.com/SaolGhra/space-invaders/main/models/planet/';
 let planetMesh;
 
 loader.load(planetPath + 'scene.gltf', (gltf) => {
