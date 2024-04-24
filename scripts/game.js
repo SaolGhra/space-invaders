@@ -50,9 +50,10 @@ const spaceInvader = '../models/spaceship2/';
 const enemyCount = 5;
 const enemySpacing = 2;
 const enemyGroup = new THREE.Group();
+let enemyMesh;
 
 loader.load(spaceInvader + 'scene.gltf', (gltf) => {
-  const enemyMesh = gltf.scene;
+  enemyMesh = gltf.scene;
   enemyMesh.position.set(0, 0, 0);
   enemyMesh.scale.set(0.1, 0.1, 0.1);
   enemyMesh.rotation.x = Math.PI / 2;
@@ -74,29 +75,51 @@ loader.load(spaceInvader + 'scene.gltf', (gltf) => {
 
 // Planet colission with enemy
 let gameOver = false;
+let playerHit = false;
+const collisionDistance = 0.5;
 
 function checkCollision() {
+  if (!spaceshipMesh) return; // Check if spaceshipMesh is defined
+
+  // Check for collision between player and enemies
+  enemyGroup.children.forEach((enemy) => {
+    if (enemy.position && spaceshipMesh.position.distanceTo(enemy.position) < collisionDistance) {
+      if (!playerHit) {
+        playerHit = true;
+        scene.remove(spaceshipMesh); // Remove spaceshipMesh when hit
+      }
+    }
+  });
+
+  // Check for collision between player and enemy bullets
+  enemyBulletGroup.children.forEach((bullet) => {
+    if (bullet.position && spaceshipMesh.position.distanceTo(bullet.position) < collisionDistance) {
+      if (!playerHit) { // Only set playerHit to true if it's not already true
+        playerHit = true;
+        scene.remove(spaceshipMesh); // Remove spaceshipMesh when hit
+      }
+    }
+  });
+
+  // Check for collision between player bullets and enemies
   bulletGroup.children.forEach((bullet) => {
     enemyGroup.children.forEach((enemy) => {
-      if (bullet.position.distanceTo(enemy.position) < 0.5) {
-        bulletGroup.remove(bullet);
-        enemy.hitCount += 1;
-        if (enemy.hitCount >= 3) {
-          enemyGroup.remove(enemy);
-          updateScore(); 
-          if (enemyCount === 0) {
-            console.log("Enemy destroyed!");
-          }
-        }
-      }
-
-      // Check if enemy collides with player
-      if (enemy.position.distanceTo(spaceshipMesh.position) < 1) {
-        gameOver = true;
-        console.log("Game Over!");
+      if (bullet.position && enemy.position && bullet.position.distanceTo(enemy.position) < collisionDistance) {
+        // Handle bullet-enemy collision
+        scene.remove(bullet); // Remove bullet when hitting an enemy
       }
     });
   });
+
+  // Update player lives
+  if (playerHit) {
+    lives--;
+    updateLives();
+    playerHit = false;
+    if (lives <= 0) {
+      gameOver = true;
+    }
+  }
 }
 
 // Make the enemies shoot back at you
@@ -115,10 +138,9 @@ function createEnemyBullet(enemy) {
 
 // Function to update enemy bullets
 function updateEnemyBullets() {
-  enemyBulletGroup.children.forEach((bullet) => {
-    // Move bullet towards player
-    const direction = new THREE.Vector3().subVectors(spaceshipMesh.position, bullet.position).normalize();
-    bullet.position.add(direction.multiplyScalar(0.1));
+  Array.from(enemyBulletGroup.children).forEach((bullet) => {
+    // Move bullet downwards
+    bullet.position.y -= 0.1;
 
     // Check if bullet collides with player
     if (bullet.position.distanceTo(spaceshipMesh.position) < 1) {
@@ -281,38 +303,67 @@ function hideGameOverScreen() {
 
 // Function to restart the game
 function restartGame() {
-  // Reset game state
-  score = 0;
-  scoreElement.innerHTML = 'Score: ' + score;
+  // Reset game over status
   gameOver = false;
-  hideGameOverScreen();
 
-  // Reset player
+  // Reset player position
   spaceshipMesh.position.set(0, 0, 0);
 
   // Reset enemies
-  for (let i = enemyGroup.children.length - 1; i >= 0; i--) {
-    enemyGroup.remove(enemyGroup.children[i]);
-  }
+  Array.from(enemyGroup.children).forEach((enemy) => {
+    enemyGroup.remove(enemy);
+  });
 
   // Reset bullets
-  for (let i = bulletGroup.children.length - 1; i >= 0; i--) {
-    bulletGroup.remove(bulletGroup.children[i]);
-  }
+  Array.from(bulletGroup.children).forEach((bullet) => {
+    bulletGroup.remove(bullet);
+  });
 
   // Reset enemy bullets
-  for (let i = enemyBulletGroup.children.length - 1; i >= 0; i--) {
-    enemyBulletGroup.remove(enemyBulletGroup.children[i]);
-  }
+  Array.from(enemyBulletGroup.children).forEach((bullet) => {
+    enemyBulletGroup.remove(bullet);
+  });
 
-  // Update game state
-  update();
+  // Reset lives
+  lives = 3;
+  updateLives();
+
+  // Reset score
+  score = 0;
+  updateScore();
+
+  // Hide game over screen
+  gameOverScreen.style.display = 'none';
 }
 
-// Event listener for keydown event
-window.addEventListener('keydown', (event) => {
-  if (gameOver && event.key === 'r') {
-    restartGame();
+// Attach restartGame to the window object
+window.restartGame = restartGame;
+
+// Player Lives
+// Create lives variable
+let lives = 3;
+
+// Create lives element
+const livesElement = document.createElement('div');
+livesElement.style.position = 'absolute';
+livesElement.style.bottom = '10px';
+livesElement.style.left = '10px';
+livesElement.style.fontSize = '20px';
+livesElement.style.color = 'white';
+livesElement.textContent = 'Lives: ' + lives;
+document.body.appendChild(livesElement);
+
+// Function to update lives
+function updateLives() {
+  livesElement.textContent = 'Lives: ' + lives;
+}
+
+// Listen for keydown events
+window.addEventListener('keydown', function(event) {
+  // Check if the 'r' key was pressed
+  if (event.key === 'r' || event.key === 'R') {
+    // Restart the game
+    window.restartGame();
   }
 });
 
@@ -378,6 +429,15 @@ function update() {
 
   if (gameOver) {
     showGameOverScreen();
+  }
+
+  if (playerHit) {
+    lives--;
+    updateLives();
+    playerHit = false;
+    if (lives <= 0) {
+      gameOver = true;
+    }
   }
 }
 
