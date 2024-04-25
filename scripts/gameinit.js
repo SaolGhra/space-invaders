@@ -98,16 +98,17 @@ function checkCollision() {
                     }
 
                     // Apply damage to the enemy
-                    enemy.hitByPlanet = (enemy.hitByPlanet || 0) + damage;
-                    console.log('Enemy hit by planet:', enemy.hitByPlanet);
+                    enemy.damage = (enemy.damage || 0) + damage;
+                    console.log('Enemy damage:', enemy.damage);
 
                     // If the enemy accumulates enough damage, destroy it
-                    if (enemy.hitByPlanet >= 3 && !enemy.destroyed) {
-                        console.log('Destroying enemy...');
-                        enemy.destroyed = true;
-                        enemyGroup.remove(enemy);
-                        scene.remove(enemy);
-                    }
+                    if (enemy.damage >= 3 && !enemy.destroyed) {
+                      console.log('Destroying enemy...');
+                      enemy.destroyed = true;
+                      enemyGroup.remove(enemy);
+                      scene.remove(enemy);
+                      updateScore();
+                  }
                 }
             }
         });
@@ -148,9 +149,14 @@ let enemyFireCounter = 0;
 function updateEnemyBullets() {
   if (enemyFireCounter >= enemyFireRate) {
     enemyBulletGroup.children.forEach((bullet) => {
-      bullet.position.y -= 0.4;
+      bullet.position.y -= 1;
 
-      if (bullet.position.distanceTo(spaceshipMesh.position) < 1) {
+      // Create bounding boxes for the bullet and the spaceship
+      const bulletBox = new THREE.Box3().setFromObject(bullet);
+      const spaceshipBox = new THREE.Box3().setFromObject(spaceshipMesh);
+
+      // Check for intersection between the bullet and the spaceship
+      if (bulletBox.intersectsBox(spaceshipBox)) {
         gameOver = true;
         console.log('Game Over!');
       }
@@ -318,24 +324,23 @@ function respawnPlayer() {
 }
 
 function restartGame() {
+  console.log('Restarting game function called');
   gameOver = false;
+  gameStarted = true;
   // Respawn the player
   respawnPlayer();
 
-  // Remove all enemies
-  enemyGroup.children.forEach((enemy) => {
-    enemyGroup.remove(enemy);
-  });
+  // Clear all existing enemies
+  enemyGroup.children = [];
+  scene.remove(...enemyGroup.children);
 
-  // Remove all bullets
-  bulletGroup.children.forEach((bullet) => {
-    bulletGroup.remove(bullet);
-  });
+  // Clear all existing bullets
+  bulletGroup.children = [];
+  scene.remove(...bulletGroup.children);
 
-  // Remove all enemy bullets
-  enemyBulletGroup.children.forEach((bullet) => {
-    enemyBulletGroup.remove(bullet);
-  });
+  // Clear all existing enemy bullets
+  enemyBulletGroup.children = [];
+  scene.remove(...enemyBulletGroup.children);
 
   // Respawn enemies
   spawnEnemies();
@@ -345,7 +350,9 @@ function restartGame() {
   updateLives();
   score = 0;
   updateScore();
+
   hideGameOverScreen();
+  animate();
 }
 
 window.restartGame = restartGame;
@@ -376,6 +383,7 @@ document.getElementById('play-button').addEventListener('click', function () {
 
 window.addEventListener('keydown', function (event) {
   if (event.key === 'r') {
+    console.log('Restarting game...');
     restartGame();
   }
 });
@@ -451,6 +459,11 @@ function animate() {
     requestAnimationFrame(animate);
     update();
     render();
+
+    if (gameOver) {
+      showGameOverScreen();
+      gameStarted = false;
+    }
   }
 }
 
