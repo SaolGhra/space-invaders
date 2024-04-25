@@ -8,6 +8,7 @@ document.body.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
+let lives = 3;
 let score = 0;
 const scoreElement = document.createElement('div');
 scoreElement.style.position = 'absolute';
@@ -69,67 +70,95 @@ const collisionDistance = 0.5;
 const planetBulletDamage = 1;
 
 function checkCollision() {
-  if (!spaceshipMesh) return;
-
-  // Check player and enemy bullet collision
-  enemyBulletGroup.children.forEach((bullet) => {
-    if (bullet.position && spaceshipMesh.position.distanceTo(bullet.position) < collisionDistance) {
-      if (!playerHit) {
-        playerHit = true;
-        scene.remove(spaceshipMesh);
-      }
-    }
-  });
-
-  // Iterate through bullets and enemies to check for collisions
-  bulletGroup.children.forEach((bullet) => {
-    if (bullet && !bullet.processed) { // Check if the bullet is not processed yet
-        enemyGroup.children.forEach((enemy) => {
-            if (enemy && !enemy.destroyed) {
-                const distance = bullet.position.distanceTo(enemy.position);
-                if (distance < collisionDistance) {
-                    bullet.processed = true; // Mark the bullet as processed
-                    scene.remove(bullet);
-
-                    let damage = 0; // Initialize damage
-
-                    if (bullet.isFromPlanet) {
-                        damage = planetBulletDamage; // Set damage for planet's bullets
-                    }
-
-                    // Apply damage to the enemy
-                    enemy.damage = (enemy.damage || 0) + damage;
-                    console.log('Enemy damage:', enemy.damage);
-
-                    // If the enemy accumulates enough damage, destroy it
-                    if (enemy.damage >= 3 && !enemy.destroyed) {
-                      console.log('Destroying enemy...');
-                      enemy.destroyed = true;
-                      enemyGroup.remove(enemy);
-                      scene.remove(enemy);
-                      updateScore();
-                  }
-                }
+    if (!spaceshipMesh) return;
+  
+    // Flag to track if the player is alive
+    let playerAlive = true;
+  
+    // Number of hits the player has taken from enemy bullets
+    let playerHits = 0;
+  
+    // Inside the checkCollision function
+    enemyBulletGroup.children.forEach((bullet) => {
+      if (bullet.position && spaceshipMesh.position.distanceTo(bullet.position) < collisionDistance) {
+        if (playerAlive) {
+          // Increment the hit count
+          playerHits++;
+          // Check if the player has been hit three times
+          if (playerHits >= 3) {
+            playerAlive = false; 
+            scene.remove(spaceshipMesh);
+            // Decrease player's lives count
+            lives--;
+            updateLives();
+            if (lives <= 0) {
+              gameOver = true;
             }
-        });
+          }
+        }
+      }
+    });
+    
+    // Reset playerHits when respawning player
+    if (!playerAlive && !spaceshipMesh) {
+      playerHits = 0;
     }
-  });
-
-  // Reset the processed flag for all bullets in each iteration of the game loop
-  bulletGroup.children.forEach((bullet) => {
-    if (bullet) {
-      bullet.processed = false;
+  
+    // Iterate through bullets and enemies to check for collisions
+    bulletGroup.children.forEach((bullet) => {
+      if (bullet && !bullet.processed) {
+          enemyGroup.children.forEach((enemy) => {
+              if (enemy && !enemy.destroyed) {
+                  const distance = bullet.position.distanceTo(enemy.position);
+                  if (distance < collisionDistance) {
+                      bullet.processed = true;
+                      scene.remove(bullet);
+  
+                      let damage = 0;
+  
+                      if (bullet.isFromPlanet) {
+                          damage = planetBulletDamage;
+                      }
+  
+                      // Apply damage to the enemy
+                      enemy.damage = (enemy.damage || 0) + damage;
+                      console.log('Enemy damage:', enemy.damage);
+  
+                      // If the enemy accumulates enough damage, destroy it
+                      if (enemy.damage >= 3 && !enemy.destroyed) {
+                        console.log('Destroying enemy...');
+                        enemy.destroyed = true;
+                        enemyGroup.remove(enemy);
+                        scene.remove(enemy);
+                        updateScore();
+                    }
+                  }
+              }
+          });
+      }
+    });
+  
+    // Reset the processed flag for all bullets in each iteration of the game loop
+    bulletGroup.children.forEach((bullet) => {
+      if (bullet) {
+        bullet.processed = false;
+      }
+    });
+  
+    // Check if the player has been hit
+    if (playerHit) {
+      // Decrease player's lives count
+      lives--;
+      updateLives();
+      
+      // Check if player is still alive
+      if (lives <= 0) {
+        gameOver = true;
+      }
+  
+      // Reset playerHit flag
+      playerHit = false;
     }
-  });
-
-  if (playerHit) {
-    lives--;
-    updateLives();
-    playerHit = false;
-    if (lives <= 0) {
-      gameOver = true;
-    }
-  }
 }
 
 const enemyBulletGroup = new THREE.Group();
@@ -149,7 +178,7 @@ let enemyFireCounter = 0;
 function updateEnemyBullets() {
   if (enemyFireCounter >= enemyFireRate) {
     enemyBulletGroup.children.forEach((bullet) => {
-      bullet.position.y -= 1;
+      bullet.position.y -= 0.4;
 
       // Create bounding boxes for the bullet and the spaceship
       const bulletBox = new THREE.Box3().setFromObject(bullet);
@@ -345,11 +374,21 @@ function restartGame() {
   // Respawn enemies
   spawnEnemies();
 
+  // Reset enemy speed
+  enemySpeed = 0.005;
+
+  // Reset enemy fire rate
+  enemyFireRate = 150;
+
+  // Reset enemy bullet speed
+  enemyBulletSpeed = 0.4;
+
   // Reset lives, score, and hide game over screen
   lives = 3;
   updateLives();
   score = 0;
   updateScore();
+
 
   hideGameOverScreen();
   animate();
@@ -357,7 +396,6 @@ function restartGame() {
 
 window.restartGame = restartGame;
 
-let lives = 3;
 const livesElement = document.createElement('div');
 livesElement.style.position = 'absolute';
 livesElement.style.bottom = '10px';
