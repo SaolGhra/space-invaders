@@ -56,7 +56,7 @@ loader.load(spaceInvader + 'scene.gltf', (gltf) => {
     enemy.hitCount = 0;
     enemy.position.set(i * enemySpacing - (enemyCount - 1) * enemySpacing / 2, 3, 0);
     enemyGroup.add(enemy);
-  }
+}
 
   scene.add(enemyGroup);
 }, undefined, (error) => {
@@ -66,6 +66,7 @@ loader.load(spaceInvader + 'scene.gltf', (gltf) => {
 let gameOver = false;
 let playerHit = false;
 const collisionDistance = 0.5;
+const planetBulletDamage = 1;
 
 function checkCollision() {
   if (!spaceshipMesh) return;
@@ -82,29 +83,34 @@ function checkCollision() {
 
   // Iterate through bullets and enemies to check for collisions
   bulletGroup.children.forEach((bullet) => {
-    if (bullet && !bullet.processed) {
-      enemyGroup.children.forEach((enemy) => {
-        if (enemy && !enemy.destroyed) {
-          const distance = bullet.position.distanceTo(enemy.position);
-          if (distance < collisionDistance) {
-            bullet.processed = true;
-            scene.remove(bullet);
-          
-            // If the bullet is from the planet, increment hit count for enemies hit by the planet
-            if (bullet.isFromPlanet) {
-              enemy.hitByPlanet = (enemy.hitByPlanet || 0) + 1;
-              console.log('Enemy hit by planet:', enemy.hitByPlanet);
-          
-              // If the enemy is hit three times by the planet, destroy it
-              if (enemy.hitByPlanet >= 3 && !enemy.destroyed) {
-                console.log('Destroying enemy...');
-                enemy.destroyed = true;
-                scene.remove(enemy);
-              }
+    if (bullet && !bullet.processed) { // Check if the bullet is not processed yet
+        enemyGroup.children.forEach((enemy) => {
+            if (enemy && !enemy.destroyed) {
+                const distance = bullet.position.distanceTo(enemy.position);
+                if (distance < collisionDistance) {
+                    bullet.processed = true; // Mark the bullet as processed
+                    scene.remove(bullet);
+
+                    let damage = 0; // Initialize damage
+
+                    if (bullet.isFromPlanet) {
+                        damage = planetBulletDamage; // Set damage for planet's bullets
+                    }
+
+                    // Apply damage to the enemy
+                    enemy.hitByPlanet = (enemy.hitByPlanet || 0) + damage;
+                    console.log('Enemy hit by planet:', enemy.hitByPlanet);
+
+                    // If the enemy accumulates enough damage, destroy it
+                    if (enemy.hitByPlanet >= 3 && !enemy.destroyed) {
+                        console.log('Destroying enemy...');
+                        enemy.destroyed = true;
+                        enemyGroup.remove(enemy);
+                        scene.remove(enemy);
+                    }
+                }
             }
-          }
-        }
-      });
+        });
     }
   });
 
@@ -136,14 +142,13 @@ function createEnemyBullet(enemy) {
   enemyBulletGroup.add(bullet);
 }
 
-let enemyFireRate = 100;
+let enemyFireRate = 150;
 let enemyFireCounter = 0;
 
 function updateEnemyBullets() {
-  // Only fire a bullet if the counter has reached the fire rate
   if (enemyFireCounter >= enemyFireRate) {
     enemyBulletGroup.children.forEach((bullet) => {
-      bullet.position.y -= 0.1;
+      bullet.position.y -= 0.4;
 
       if (bullet.position.distanceTo(spaceshipMesh.position) < 1) {
         gameOver = true;
