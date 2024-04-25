@@ -65,7 +65,6 @@ loader.load(spaceInvader + 'scene.gltf', (gltf) => {
 });
 
 let gameOver = false;
-let playerHit = false;
 const collisionDistance = 0.5;
 const planetBulletDamage = 1;
 
@@ -144,21 +143,6 @@ function checkCollision() {
         bullet.processed = false;
       }
     });
-  
-    // Check if the player has been hit
-    if (playerHit) {
-      // Decrease player's lives count
-      lives--;
-      updateLives();
-      
-      // Check if player is still alive
-      if (lives <= 0) {
-        gameOver = true;
-      }
-  
-      // Reset playerHit flag
-      playerHit = false;
-    }
 }
 
 const enemyBulletGroup = new THREE.Group();
@@ -186,8 +170,12 @@ function updateEnemyBullets() {
 
       // Check for intersection between the bullet and the spaceship
       if (bulletBox.intersectsBox(spaceshipBox)) {
-        gameOver = true;
-        console.log('Game Over!');
+        lives--;
+      
+        // If no lives left, transition to game over
+        if (lives <= 0) {
+          gameOver();
+        }
       }
     });
 
@@ -425,6 +413,8 @@ window.addEventListener('keydown', function (event) {
     restartGame();
   }
 });
+
+let playerHit = true;
 
 function resetGameState() {
   gameOver = false;
