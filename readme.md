@@ -1,3 +1,9 @@
+# Depricated project
+
+## This was a first attempt for creating a game using threejs it was just to test my ability, this will not be finished i dont intend to finish this
+
+### feel free to fork this repository and finish it off, share your work with me if you do so, i'd be quite interested to see what anyone is able to do with this.
+
 # Space Invaders
 
 ![GitHub Repo stars](https://img.shields.io/github/stars/saolghra/space-invaders?style=for-the-badge)
